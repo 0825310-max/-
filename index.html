@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>BPM研究ゲーム</title>
+
+<style>
+body{
+text-align:center;
+font-family:sans-serif;
+}
+
+#gameArea{
+position:relative;
+width:600px;
+height:500px;
+margin:auto;
+border:1px solid black;
+}
+
+.item{
+position:absolute;
+width:26px;
+height:26px;
+border-radius:50%;
+background-color:lightblue;
+text-align:center;
+line-height:26px;
+font-size:13px;
+cursor:pointer;
+user-select:none;
+}
+
+#result{
+margin-top:20px;
+font-size:18px;
+}
+
+select,button,input{
+margin:5px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>BPMタップ実験</h2>
+
+<label>名前：</label>
+<input type="text" id="playerName">
+
+<br>
+
+<label>BPM条件：</label>
+<select id="bpmSelect">
+<option value="60">60 BPM</option>
+<option value="120" selected>120 BPM</option>
+<option value="180">180 BPM</option>
+<option value="up">60→180 加速</option>
+<option value="down">180→60 減速</option>
+</select>
+
+<button onclick="startGame()">スタート</button>
+
+<div id="gameArea"></div>
+
+<p>次：<span id="nextTarget">1</span></p>
+<p>ミス：<span id="miss">0</span></p>
+
+<h3>結果</h3>
+<div id="result"></div>
+
+<script>
+
+let currentNumber;
+let currentLetterIndex;
+let expectNumber;
+let missCount;
+let clickCount;
+let startTime;
+let tempoInterval;
+
+const letters="ABCDEFGHIJKLMNO".split("");
+const bgm=new Audio("8bit29.mp3");
+const baseBPM=120;
+
+function startGame(){
+
+clearInterval(tempoInterval);
+
+const name=document.getElementById("playerName").value.trim();
+
+if(name===""){
+alert("名前を入力してください");
+return;
+}
+
+document.getElementById("result").innerHTML="";
+document.getElementById("gameArea").innerHTML="";
+
+currentNumber=1;
+currentLetterIndex=0;
+expectNumber=true;
+missCount=0;
+clickCount=0;
+
+document.getElementById("miss").textContent=0;
+document.getElementById("nextTarget").textContent="1";
+
+createItems();
+
+const mode=document.getElementById("bpmSelect").value;
+
+bgm.currentTime=0;
+
+if(mode==="60"){
+bgm.playbackRate=60/baseBPM;
+}
+else if(mode==="120"){
+bgm.playbackRate=120/baseBPM;
+}
+else if(mode==="180"){
+bgm.playbackRate=180/baseBPM;
+}
+else if(mode==="up"){
+
+bgm.playbackRate=60/baseBPM;
+
+tempoInterval=setInterval(()=>{
+bgm.playbackRate+=0.005;
+
+if(bgm.playbackRate>=180/baseBPM){
+clearInterval(tempoInterval);
+}
+
+},100);
+
+}
+else if(mode==="down"){
+
+bgm.playbackRate=180/baseBPM;
+
+tempoInterval=setInterval(()=>{
+bgm.playbackRate-=0.005;
+
+if(bgm.playbackRate<=60/baseBPM){
+clearInterval(tempoInterval);
+}
+
+},100);
+
+}
+
+bgm.play().catch(()=>{});
+
+startTime=performance.now();
+
+}
+
+function createItems(){
+
+const area=document.getElementById("gameArea");
+const placed=[];
+const size=26;
+
+function getPos(){
+
+let x,y,overlap;
+
+do{
+
+overlap=false;
+
+x=Math.random()*560;
+y=Math.random()*460;
+
+for(let p of placed){
+
+const dx=x-p.x;
+const dy=y-p.y;
+const dist=Math.sqrt(dx*dx+dy*dy);
+
+if(dist<size+5){
+overlap=true;
+break;
+}
+
+}
+
+}while(overlap);
+
+placed.push({x,y});
+
+return {x,y};
+
+}
+
+function createItem(text){
+
+const div=document.createElement("div");
+div.className="item";
+div.textContent=text;
+
+const pos=getPos();
+
+div.style.left=pos.x+"px";
+div.style.top=pos.y+"px";
+
+div.onclick=function(){
+
+clickCount++;
+checkClick(text,div);
+
+};
+
+area.appendChild(div);
+
+}
+
+for(let i=1;i<=15;i++){
+createItem(i.toString());
+}
+
+letters.forEach(letter=>{
+createItem(letter);
+});
+
+}
+
+function checkClick(text,element){
+
+let correct=false;
+
+if(expectNumber && text==currentNumber.toString()){
+
+correct=true;
+currentNumber++;
+expectNumber=false;
+
+document.getElementById("nextTarget").textContent=
+letters[currentLetterIndex];
+
+}
+
+else if(!expectNumber && text==letters[currentLetterIndex]){
+
+correct=true;
+currentLetterIndex++;
+expectNumber=true;
+
+document.getElementById("nextTarget").textContent=
+currentNumber;
+
+}
+
+if(correct){
+
+element.remove();
+
+}else{
+
+missCount++;
+document.getElementById("miss").textContent=missCount;
+
+}
+
+if(currentNumber>15 && currentLetterIndex>=15){
+
+finishGame();
+
+}
+
+}
+
+function finishGame(){
+
+const endTime=performance.now();
+const time=((endTime-startTime)/1000).toFixed(2);
+
+clearInterval(tempoInterval);
+bgm.pause();
+
+const name=document.getElementById("playerName").value;
+const bpm=document.getElementById("bpmSelect").selectedOptions[0].text;
+
+const now=new Date();
+const timestamp=now.toLocaleString();
+
+document.getElementById("result").innerHTML=
+
+"名前："+name+"<br>"+
+"日時："+timestamp+"<br>"+
+"BPM："+bpm+"<br>"+
+"クリアタイム："+time+" 秒<br>"+
+"ミス数："+missCount+"<br>"+
+"クリック数："+clickCount;
+
+}
+
+</script>
+
+</body>
+</html>
